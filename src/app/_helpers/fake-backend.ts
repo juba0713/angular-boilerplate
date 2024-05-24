@@ -9,6 +9,8 @@ import { Role } from '@app/_models';
 // array in local storage for accounts
 const accountsKey = 'angular-10-signup-verification-boilerplate-accounts';
 let accounts = JSON.parse(localStorage.getItem(accountsKey)) || [];
+const booksKey = 'angular-10-signup-verification-boilerplate-books';
+let books = JSON.parse(localStorage.getItem(booksKey)) || [];
 
 @Injectable()
 export class FakeBackendInterceptor implements HttpInterceptor {
@@ -48,10 +50,74 @@ export class FakeBackendInterceptor implements HttpInterceptor {
                     return updateAccount();
                 case url.match(/\/accounts\/\d+$/) && method === 'DELETE':
                     return deleteAccount();
+                case url.endsWith('/book/category/restaurant/details') && method === 'POST':
+                    return saveBook();
+                case url.endsWith('') && method === 'GET':
+                    return getAllBooks();
+                case url.endsWith('/accounts/disable') && method === 'POST':
+                    return disableAccount();
+                case url.endsWith('/accounts/enable') && method === 'POST':
+                    return enableAccount();
                 default:
                     // pass through any requests not handled above
                     return next.handle(request);
             }    
+        }
+
+        function disableAccount(){
+            const { id } = request.body;
+            if (!isAuthenticated()) return unauthorized();
+            
+            let account = accounts.find(x => x.id === id);
+
+            // user accounts can update own profile and admin accounts can update all profiles
+            if (account.id !== currentAccount().id && !isAuthorized(Role.Admin)) {
+                return unauthorized();
+            }
+
+            console.log("AW: " + id);
+
+            account.deleteFlg = "true";
+
+            // update and save account
+            Object.assign(account);
+            localStorage.setItem(accountsKey, JSON.stringify(accounts));
+
+            return ok(basicDetails(account));
+        }
+
+        function enableAccount(){
+            const { id } = request.body;
+            if (!isAuthenticated()) return unauthorized();
+            
+            let account = accounts.find(x => x.id === id);
+
+            //user accounts can update own profile and admin accounts can update all profiles
+            if (account.id !== currentAccount().id && !isAuthorized(Role.Admin)) {
+                return unauthorized();
+            }
+            account.deleteFlg = "false";
+
+            // update and save account
+            Object.assign(account);
+            localStorage.setItem(accountsKey, JSON.stringify(accounts));
+
+            return ok(basicDetails(account));
+        }
+
+        function saveBook(){
+            const book = body;
+            book.category = "1";
+            book.placeNumber = "1";    
+            books.push(book);
+            localStorage.setItem(booksKey, JSON.stringify(books));
+
+            return ok();
+        }
+
+        function getAllBooks(){
+            if (!isAuthenticated()) return unauthorized();
+            return ok(books.map(x => basicDetails(x)));
         }
 
         // route functions
@@ -61,6 +127,7 @@ export class FakeBackendInterceptor implements HttpInterceptor {
             const account = accounts.find(x => x.email === email && x.password === password && x.isVerified);
             
             if (!account) return error('Email or password is incorrect');
+            if( account.deleteFlg == "true") return error ('Disabled Account!');
 
             // add refresh token to account
             account.refreshTokens.push(generateRefreshToken());
@@ -135,6 +202,7 @@ export class FakeBackendInterceptor implements HttpInterceptor {
             account.dateCreated = new Date().toISOString();
             account.verificationToken = new Date().getTime().toString();
             account.isVerified = false;
+            account.deleteFlg = "false";
             account.refreshTokens = [];
             delete account.confirmPassword;
             accounts.push(account);
@@ -256,6 +324,7 @@ export class FakeBackendInterceptor implements HttpInterceptor {
             account.dateCreated = new Date().toISOString();
             account.isVerified = true;
             account.refreshTokens = [];
+            account.deleteFlg = "false";
             delete account.confirmPassword;
             accounts.push(account);
             localStorage.setItem(accountsKey, JSON.stringify(accounts));
@@ -322,8 +391,8 @@ export class FakeBackendInterceptor implements HttpInterceptor {
         }
 
         function basicDetails(account) {
-            const { id, title, firstName, lastName, email, role, dateCreated, isVerified } = account;
-            return { id, title, firstName, lastName, email, role, dateCreated, isVerified };
+            const { id, title, firstName, lastName, email, role, dateCreated, isVerified, deleteFlg } = account;
+            return { id, title, firstName, lastName, email, role, dateCreated, isVerified, deleteFlg };
         }
 
         function isAuthenticated() {

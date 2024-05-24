@@ -4,8 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { map, finalize } from 'rxjs/operators';
 
-import { environment } from '@environments/environment';
-import { Account } from '@app/_models';
+import { environment } from '../../environments/environment';
+import { Account } from '../_models';
 
 const baseUrl = `${environment.apiUrl}/accounts`;
 
@@ -94,6 +94,16 @@ export class AccountService {
                 }
                 return account;
             }));
+    }
+
+    disable(id) {
+        console.log("ID: " + id);
+        return this.http.post(`${baseUrl}/disable`, {id});
+    }
+
+    enable(id) {
+        console.log("ID: " + id);
+        return this.http.post(`${baseUrl}/enable`, {id});
     }
     
     delete(id: string) {
